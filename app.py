@@ -14,5 +14,4 @@ for uploaded_file in uploaded_files:
     df = pd.read_csv(uploaded_file)
     st.write(df)
 
-cuota = lf.cuota_prestamo(monto, interes,anios,numero_pagos)
-st.write("Su cuota mensual es: ",cuota)
+
