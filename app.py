@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
 import libreria_funciones as lf
+import librería_clase as lc
 
 st.title("Proyecto final UCG")
 
 st.sidebar.title("Parámetros")
 
 st.sidebar.image("Python_logo.png")
+modulo = st.selectbox("Seleccione un módulo",[Módulo 1","Módulo 2","Módulo 3"])
 
 uploaded_files = st.file_uploader(
     "Upload data", accept_multiple_files=True, type="csv"
