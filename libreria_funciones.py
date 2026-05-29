@@ -212,3 +212,142 @@ def disponibilidad_servicio(total_horas, horas_caida, mantenimientos_programados
     disponibilidad_ajustada = disponibilidad - penalizacion_pct
 
     return max(disponibilidad_ajustada, 0)
+
+
+
+def calcular_biomasa(num_animales, peso_gramos):
+    """
+    Calcula la biomasa total en kilogramos.
+
+    Parámetros:
+        num_animales (int): Población estimada de camarones.
+        peso_gramos (float): Peso promedio del camarón en gramos.
+
+    Retorna:
+        float: Biomasa total en kilogramos.
+    """
+    return (num_animales * peso_gramos) / 1000.0
+
+
+def calcular_adg(peso_inicial, peso_final, dias):
+    """
+    Calcula el Incremento de Peso Diario (ADG - Average Daily Gain).
+
+    Parámetros:
+        peso_inicial (float): Peso promedio inicial en gramos.
+        peso_final (float): Peso promedio final en gramos.
+        dias (int): Días transcurridos entre las muestras.
+
+    Retorna:
+        float: Incremento de peso diario en gramos/día.
+    """
+    if dias <= 0:
+        return 0.0
+    return (peso_final - peso_inicial) / dias
+
+
+def calcular_fcr(consumo_total_kg, biomasa_ganada_kg):
+    """
+    Calcula el Factor de Conversión Alimenticia (FCR - Feed Conversion Ratio).
+
+    Parámetros:
+        consumo_total_kg (float): Alimento total consumido en kilogramos.
+        biomasa_ganada_kg (float): Biomasa total ganada en kilogramos (Biomasa final - Biomasa inicial).
+
+    Retorna:
+        float: Factor de conversión alimenticia.
+    """
+    if biomasa_ganada_kg <= 0:
+        return 0.0
+    return consumo_total_kg / biomasa_ganada_kg
+
+
+def calcular_supervivencia(poblacion_actual, poblacion_inicial):
+    """
+    Calcula el porcentaje de supervivencia de la población.
+
+    Parámetros:
+        poblacion_actual (int): Número actual de animales estimado.
+        poblacion_inicial (int): Número de animales sembrados originalmente.
+
+    Retorna:
+        float: Porcentaje de supervivencia (0 - 100).
+    """
+    if poblacion_inicial <= 0:
+        return 0.0
+    return (poblacion_actual / poblacion_inicial) * 100.0
+
+
+def generar_datos_camaronera_simulados(num_dias=90):
+    """
+    Genera un conjunto de datos simulado y realista para el sector camaronero.
+    Modela el crecimiento logístico, la mortalidad natural y la tasa de alimentación.
+
+    Parámetros:
+        num_dias (int): Duración en días de la corrida de producción.
+
+    Retorna:
+        pandas.DataFrame: DataFrame con los campos requeridos por el usuario.
+    """
+    import pandas as pd
+    import numpy as np
+    from datetime import datetime, timedelta
+
+    np.random.seed(42)  # Para reproducibilidad
+
+    fincas = [
+        {"codigo": "FINCA_MAR_AZUL", "piscinas": ["PISC_101", "PISC_102"], "densidades": [120000, 150000]},
+        {"codigo": "FINCA_ESTERO_REAL", "piscinas": ["PISC_201", "PISC_202"], "densidades": [100000, 130000]}
+    ]
+
+    registros = []
+    fecha_inicio = datetime.now() - timedelta(days=num_dias)
+
+    for finca in fincas:
+        cod_finca = finca["codigo"]
+        for p_idx, piscina in enumerate(finca["piscinas"]):
+            n_inicial = finca["densidades"][p_idx]
+            
+            # Parámetros biológicos para cada piscina para darles diversidad
+            w_max = np.random.normal(25.0, 1.5)  # Peso máximo comercial alcanzable
+            k = np.random.normal(0.06, 0.005)    # Tasa de crecimiento
+            t50 = np.random.normal(45.0, 3.0)    # Día de crecimiento medio
+            mortalidad_diaria = np.random.uniform(0.0015, 0.0025) # Tasa de mortalidad diaria
+            
+            poblacion = n_inicial
+            peso_anterior = 0.05
+            
+            for dia in range(1, num_dias + 1):
+                fecha_muestra = (fecha_inicio + timedelta(days=dia)).strftime("%Y-%m-%d")
+                
+                # 1. Crecimiento logístico del peso + ruido biológico
+                peso_teorico = w_max / (1.0 + np.exp(-k * (dia - t50)))
+                ruido_peso = np.random.normal(0, 0.02 * peso_teorico)
+                peso_gramos = max(0.05, peso_teorico + ruido_peso)
+                
+                # 2. Descenso poblacional exponencial por mortalidad natural
+                poblacion_teorica = n_inicial * np.exp(-mortalidad_diaria * dia)
+                ruido_pob = np.random.normal(0, 0.005 * poblacion_teorica)
+                poblacion = int(max(1000, poblacion_teorica + ruido_pob))
+                
+                # 3. Consumo de balanceado diario basado en biomasa y edad
+                biomasa_kg = (poblacion * peso_gramos) / 1000.0
+                # Tasa de alimentación disminuye a medida que crece el camarón
+                tasa_alim = 0.015 + 0.08 * np.exp(-0.04 * dia)
+                # Variaciones por temperatura/ambiente (simuladas con onda senoidal + ruido)
+                factor_clima = 1.0 + 0.08 * np.sin(dia / 4.0) + np.random.normal(0, 0.05)
+                consumo_balanceado_kg = max(0.0, biomasa_kg * tasa_alim * factor_clima)
+                
+                registros.append({
+                    "codigo_camaronera": cod_finca,
+                    "cod_piscina": piscina,
+                    "fecha_muestra": fecha_muestra,
+                    "corrida": "CORRIDA_2026_A",
+                    "peso_gramos": round(peso_gramos, 2),
+                    "consumo_balanceado_kg": round(consumo_balanceado_kg, 2),
+                    "num_animales": poblacion
+                })
+                
+                peso_anterior = peso_gramos
+
+    return pd.DataFrame(registros)

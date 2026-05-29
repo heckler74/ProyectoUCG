@@ -509,3 +509,170 @@ class ParcelaAgricola:
             "fertilizante_kg": round(self.calcular_fertilizante_kg(), 2),
             "sacos_50kg": round(self.calcular_fertilizante_kg() / 50, 2)
         }
+
+
+
+# =========================================================
+# 11) SECTOR CAMARONERO / ACUICULTURA
+# =========================================================
+
+class MuestraPiscina:
+    """
+    Representa una muestra de producción tomada en una piscina camaronera.
+    """
+
+    def __init__(self, fecha, peso_gramos, consumo_balanceado_kg, num_animales):
+        self.fecha = fecha
+        self.peso_gramos = peso_gramos
+        self.consumo_balanceado_kg = consumo_balanceado_kg
+        self.num_animales = num_animales
+
+        validar_positivo(self.peso_gramos, "peso_gramos")
+        validar_positivo(self.consumo_balanceado_kg, "consumo_balanceado_kg", permitir_cero=True)
+        validar_positivo(self.num_animales, "num_animales")
+
+    def calcular_biomasa_kg(self):
+        """Calcula la biomasa total en kg a partir del peso y el número de animales."""
+        return (self.num_animales * self.peso_gramos) / 1000.0
+
+
+class PiscinaCamaronera:
+    """
+    Representa una piscina en una camaronera, gestionando su historial
+    de muestras, crecimiento y alimentación.
+    """
+
+    def __init__(self, cod_piscina, poblacion_inicial=None):
+        self.cod_piscina = cod_piscina
+        self.muestras = []
+        self.poblacion_inicial = poblacion_inicial
+
+    def agregar_muestra(self, muestra):
+        """Agrega una muestra al historial de la piscina."""
+        if not isinstance(muestra, MuestraPiscina):
+            raise TypeError("La muestra debe ser una instancia de MuestraPiscina.")
+        
+        # Si no se ha definido población inicial, se define con la primera muestra
+        if self.poblacion_inicial is None or self.poblacion_inicial == 0:
+            self.poblacion_inicial = muestra.num_animales
+            
+        self.muestras.append(muestra)
+        # Ordenar las muestras por fecha para asegurar consistencia en los cálculos
+        self.muestras.sort(key=lambda m: m.fecha)
+
+    def total_alimento_consumido(self):
+        """Calcula la cantidad acumulada de alimento consumido en kg."""
+        return sum(m.consumo_balanceado_kg for m in self.muestras)
+
+    def fcr_actual(self):
+        """
+        Calcula el Factor de Conversión Alimenticia (FCR) actual de la piscina.
+        FCR = Alimento total consumido / (Biomasa actual - Biomasa inicial)
+        """
+        if len(self.muestras) < 2:
+            return 0.0
+        
+        biomasa_inicial = self.muestras[0].calcular_biomasa_kg()
+        biomasa_actual = self.muestras[-1].calcular_biomasa_kg()
+        biomasa_ganada = biomasa_actual - biomasa_inicial
+        
+        if biomasa_ganada <= 0:
+            return 0.0
+            
+        return self.total_alimento_consumido() / biomasa_ganada
+
+    def supervivencia_actual(self):
+        """Calcula el porcentaje de supervivencia actual basado en la población inicial."""
+        if not self.muestras or not self.poblacion_inicial:
+            return 0.0
+        
+        poblacion_actual = self.muestras[-1].num_animales
+        return (poblacion_actual / self.poblacion_inicial) * 100.0
+
+    def adg_promedio(self):
+        """
+        Calcula el Incremento de Peso Diario (ADG) promedio a lo largo de toda la corrida.
+        """
+        if len(self.muestras) < 2:
+            return 0.0
+        
+        import datetime
+        
+        # Convertir fechas a objetos datetime para calcular la diferencia de días
+        try:
+            d_inicio = datetime.datetime.strptime(self.muestras[0].fecha, "%Y-%m-%d")
+            d_fin = datetime.datetime.strptime(self.muestras[-1].fecha, "%Y-%m-%d")
+            diferencia_dias = (d_fin - d_inicio).days
+        except Exception:
+            # Fallback en caso de que las fechas tengan un formato diferente
+            diferencia_dias = len(self.muestras)
+            
+        if diferencia_dias <= 0:
+            return 0.0
+            
+        peso_inicial = self.muestras[0].peso_gramos
+        peso_actual = self.muestras[-1].peso_gramos
+        
+        return (peso_actual - peso_inicial) / diferencia_dias
+
+    def obtener_resumen(self):
+        """Retorna un diccionario resumido con los KPIs actuales de la piscina."""
+        if not self.muestras:
+            return {
+                "cod_piscina": self.cod_piscina,
+                "estado": "Sin muestras registradas"
+            }
+            
+        muestra_actual = self.muestras[-1]
+        
+        return {
+            "cod_piscina": self.cod_piscina,
+            "dias_cultivo": len(self.muestras),
+            "peso_actual_g": round(muestra_actual.peso_gramos, 2),
+            "poblacion_estimada": muestra_actual.num_animales,
+            "biomasa_actual_kg": round(muestra_actual.calcular_biomasa_kg(), 2),
+            "alimento_acumulado_kg": round(self.total_alimento_consumido(), 2),
+            "fcr_actual": round(self.fcr_actual(), 2),
+            "supervivencia_pct": round(self.supervivencia_actual(), 2),
+            "adg_promedio_g_dia": round(self.adg_promedio(), 3)
+        }
+
+
+class Camaronera:
+    """
+    Representa una empresa camaronera que agrupa y gestiona múltiples piscinas.
+    """
+
+    def __init__(self, codigo_camaronera):
+        self.codigo_camaronera = codigo_camaronera
+        self.piscinas = {}
+
+    def obtener_piscina(self, cod_piscina):
+        """Retorna una piscina por su código, creándola si no existe."""
+        if cod_piscina not in self.piscinas:
+            self.piscinas[cod_piscina] = PiscinaCamaronera(cod_piscina)
+        return self.piscinas[cod_piscina]
+
+    def agregar_datos_desde_dataframe(self, df):
+        """
+        Carga datos desde un DataFrame de Pandas (filtrado para esta camaronera)
+        e instancia los objetos correspondientes.
+        """
+        # Filtrar registros de esta camaronera específica
+        df_filtrado = df[df["codigo_camaronera"] == self.codigo_camaronera]
+        
+        for _, row in df_filtrado.iterrows():
+            cod_p = row["cod_piscina"]
+            piscina = self.obtener_piscina(cod_p)
+            
+            muestra = MuestraPiscina(
+                fecha=str(row["fecha_muestra"]),
+                peso_gramos=float(row["peso_gramos"]),
+                consumo_balanceado_kg=float(row["consumo_balanceado_kg"]),
+                num_animales=int(row["num_animales"])
+            )
+            piscina.agregar_muestra(muestra)
+
+    def obtener_resumen_general(self):
+        """Retorna una lista de diccionarios con el resumen de cada piscina activa."""
+        return [piscina.obtener_resumen() for piscina in self.piscinas.values() if piscina.muestras]
