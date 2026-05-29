@@ -211,42 +211,44 @@ if df is not None:
         st.plotly_chart(fig_crec, use_container_width=True)
         
         # Gráfico 2: Alimento diario consumido y peso acumulado (Eje Y dual)
-        fig_alim = go.Figure()
-        # Consumo balanceado diario (Barras)
-        fig_alim.add_trace(go.Bar(
-            x=df_filtrado["fecha_muestra"], 
-            y=df_filtrado["consumo_balanceado_kg"],
-            name='Consumo Diario (kg)',
-            marker_color='#10b981',
-            opacity=0.75
-        ))
-        # Peso en gramos (Línea en eje Y secundario)
-        fig_alim.add_trace(go.Scatter(
-            x=df_filtrado["fecha_muestra"], 
-            y=df_filtrado["peso_gramos"],
-            name='Peso Promedio (g)',
-            line=dict(color='#f59e0b', width=2.5),
-            yaxis='y2'
-        ))
+        from plotly.subplots import make_subplots
+        
+        # Crear figura con eje Y secundario
+        fig_alim = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # Consumo balanceado diario (Barras - Eje Y primario)
+        fig_alim.add_trace(
+            go.Bar(
+                x=df_filtrado["fecha_muestra"], 
+                y=df_filtrado["consumo_balanceado_kg"],
+                name='Consumo Diario (kg)',
+                marker_color='#10b981',
+                opacity=0.75
+            ),
+            secondary_y=False
+        )
+        
+        # Peso en gramos (Línea - Eje Y secundario)
+        fig_alim.add_trace(
+            go.Scatter(
+                x=df_filtrado["fecha_muestra"], 
+                y=df_filtrado["peso_gramos"],
+                name='Peso Promedio (g)',
+                line=dict(color='#f59e0b', width=2.5)
+            ),
+            secondary_y=True
+        )
         
         fig_alim.update_layout(
             title='Relación de Alimentación Diaria vs Peso Corporal del Camarón',
             xaxis_title='Fecha',
-            yaxis=dict(
-                title='Consumo de Balanceado (kg)',
-                titlefont=dict(color='#10b981'),
-                tickfont=dict(color='#10b981')
-            ),
-            yaxis2=dict(
-                title='Peso (g)',
-                titlefont=dict(color='#f59e0b'),
-                tickfont=dict(color='#f59e0b'),
-                overlaying='y',
-                side='right'
-            ),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             template='plotly_dark'
         )
+        
+        fig_alim.update_yaxes(title_text="Consumo de Balanceado (kg)", secondary_y=False, titlefont=dict(color='#10b981'), tickfont=dict(color='#10b981'))
+        fig_alim.update_yaxes(title_text="Peso (g)", secondary_y=True, titlefont=dict(color='#f59e0b'), tickfont=dict(color='#f59e0b'))
+        
         st.plotly_chart(fig_alim, use_container_width=True)
 
     with tab2:
