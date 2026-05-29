@@ -246,8 +246,8 @@ if df is not None:
             template='plotly_dark'
         )
         
-        fig_alim.update_yaxes(title_text="Consumo de Balanceado (kg)", secondary_y=False, titlefont=dict(color='#10b981'), tickfont=dict(color='#10b981'))
-        fig_alim.update_yaxes(title_text="Peso (g)", secondary_y=True, titlefont=dict(color='#f59e0b'), tickfont=dict(color='#f59e0b'))
+        fig_alim.update_yaxes(title_text="Consumo de Balanceado (kg)", secondary_y=False, title_font=dict(color='#10b981'), tickfont=dict(color='#10b981'))
+        fig_alim.update_yaxes(title_text="Peso (g)", secondary_y=True, title_font=dict(color='#f59e0b'), tickfont=dict(color='#f59e0b'))
         
         st.plotly_chart(fig_alim, use_container_width=True)
 
