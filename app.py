@@ -84,6 +84,63 @@ else:
             st.error(f"Error al leer el CSV: {str(e)}")
     else:
         st.info("Suba un archivo CSV en la barra lateral para iniciar el análisis, o seleccione la opción de simulación.")
+        
+        # Generar datos de ejemplo para descargar la plantilla con la estructura correcta
+        df_plantilla = pd.DataFrame([
+            {
+                "codigo_camaronera": "FINCA_MAR_AZUL",
+                "cod_piscina": "PISC_101",
+                "fecha_muestra": "2026-05-01",
+                "corrida": "CORRIDA_2026_A",
+                "peso_gramos": 0.50,
+                "consumo_balanceado_kg": 15.20,
+                "num_animales": 120000
+            },
+            {
+                "codigo_camaronera": "FINCA_MAR_AZUL",
+                "cod_piscina": "PISC_101",
+                "fecha_muestra": "2026-05-08",
+                "corrida": "CORRIDA_2026_A",
+                "peso_gramos": 2.10,
+                "consumo_balanceado_kg": 35.40,
+                "num_animales": 119800
+            },
+            {
+                "codigo_camaronera": "FINCA_MAR_AZUL",
+                "cod_piscina": "PISC_101",
+                "fecha_muestra": "2026-05-15",
+                "corrida": "CORRIDA_2026_A",
+                "peso_gramos": 4.50,
+                "consumo_balanceado_kg": 62.10,
+                "num_animales": 119500
+            },
+            {
+                "codigo_camaronera": "FINCA_MAR_AZUL",
+                "cod_piscina": "PISC_101",
+                "fecha_muestra": "2026-05-22",
+                "corrida": "CORRIDA_2026_A",
+                "peso_gramos": 7.20,
+                "consumo_balanceado_kg": 95.80,
+                "num_animales": 119100
+            },
+            {
+                "codigo_camaronera": "FINCA_MAR_AZUL",
+                "cod_piscina": "PISC_101",
+                "fecha_muestra": "2026-05-29",
+                "corrida": "CORRIDA_2026_A",
+                "peso_gramos": 10.40,
+                "consumo_balanceado_kg": 140.50,
+                "num_animales": 118700
+            }
+        ])
+        csv_plantilla = df_plantilla.to_csv(index=False).encode('utf-8')
+        st.sidebar.download_button(
+            label="📥 Descargar Plantilla de Ejemplo",
+            data=csv_plantilla,
+            file_name="plantilla_camaronera_ejemplo.csv",
+            mime="text/csv",
+            help="Descarga un archivo CSV de ejemplo con el formato y las columnas requeridas por el sistema."
+        )
 
 if df is not None:
     # Asegurar tipos de datos adecuados
