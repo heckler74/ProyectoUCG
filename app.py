@@ -210,24 +210,41 @@ if df is not None:
     
     # Filtrar piscinas correspondientes a la camaronera seleccionada
     df_cam = df[df["codigo_camaronera"] == selected_camaronera]
-    piscinas_disponibles = sorted(df_cam["cod_piscina"].unique())
+    ALL_PISCINAS = "Todas las Piscinas"
+    piscinas_disponibles = [ALL_PISCINAS] + sorted(df_cam["cod_piscina"].unique())
     selected_piscina = st.sidebar.selectbox("Seleccione Piscina", piscinas_disponibles)
     
-    # Filtrar corridas de esa piscina
-    df_pis = df_cam[df_cam["cod_piscina"] == selected_piscina]
-    corridas_disponibles = sorted(df_pis["corrida"].unique())
+    # Filtrar corridas de la selección de piscina
+    if selected_piscina == ALL_PISCINAS:
+        df_pis = df_cam
+    else:
+        df_pis = df_cam[df_cam["cod_piscina"] == selected_piscina]
+
+    ALL_CORRIDAS = "Todas las Corridas"
+    corridas_disponibles = [ALL_CORRIDAS] + sorted(df_pis["corrida"].unique())
     selected_corrida = st.sidebar.selectbox("Seleccione Corrida", corridas_disponibles)
     
     # Filtrar el DataFrame final para el análisis
-    df_filtrado = df_pis[df_pis["corrida"] == selected_corrida].sort_values("fecha_muestra")
+    if selected_corrida == ALL_CORRIDAS:
+        df_filtrado = df_pis.sort_values("fecha_muestra")
+    else:
+        df_filtrado = df_pis[df_pis["corrida"] == selected_corrida].sort_values("fecha_muestra")
     
     # Instanciar clases de Negocio (POO)
     camaronera_obj = lc.Camaronera(selected_camaronera)
+    resumen_general = None
     try:
         camaronera_obj.agregar_datos_desde_dataframe(df)
-        piscina_obj = camaronera_obj.obtener_piscina(selected_piscina)
-        # Obtener resumen por POO
-        resumen_piscina = piscina_obj.obtener_resumen()
+        if selected_piscina == ALL_PISCINAS:
+            resumen_general = camaronera_obj.obtener_resumen_general()
+            resumen_piscina = None
+            total_poblacion_inicial = sum(
+                piscina.poblacion_inicial or 0 for piscina in camaronera_obj.piscinas.values()
+            )
+        else:
+            piscina_obj = camaronera_obj.obtener_piscina(selected_piscina)
+            # Obtener resumen por POO
+            resumen_piscina = piscina_obj.obtener_resumen()
     except Exception as e:
         st.error(f"Error al procesar los datos de la camaronera: {e}")
         st.stop()
@@ -244,7 +261,7 @@ if df is not None:
         st.subheader(f"Monitoreo Actual: {selected_camaronera} | {selected_piscina} | {selected_corrida}")
         
         # KPIs en tarjetas
-        if "estado" not in resumen_piscina:
+        if resumen_piscina is not None and "estado" not in resumen_piscina:
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric(
@@ -284,8 +301,59 @@ if df is not None:
                     label="Crecimiento Diario (ADG)", 
                     value=f"{resumen_piscina['adg_promedio_g_dia']} g/día"
                 )
+        elif resumen_general:
+            total_poblacion = sum(r['poblacion_estimada'] for r in resumen_general)
+            total_biomasa = sum(r['biomasa_actual_kg'] for r in resumen_general)
+            total_alimento = sum(r['alimento_acumulado_kg'] for r in resumen_general)
+            promedio_fcr = round(sum(r['fcr_actual'] for r in resumen_general) / len(resumen_general), 2) if resumen_general else 0.0
+            promedio_supervivencia = round(sum(r['supervivencia_pct'] for r in resumen_general) / len(resumen_general), 2) if resumen_general else 0.0
+            promedio_adg = round(sum(r['adg_promedio_g_dia'] for r in resumen_general) / len(resumen_general), 2) if resumen_general else 0.0
+            peso_promedio_actual = round(
+                sum(r['peso_actual_g'] * r['poblacion_estimada'] for r in resumen_general) / total_poblacion,
+                2
+            ) if total_poblacion else 0.0
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric(
+                    label="Peso Promedio Actual (Agrupado)",
+                    value=f"{peso_promedio_actual} g",
+                    delta=f"Basado en {len(resumen_general)} piscinas"
+                )
+            with col2:
+                st.metric(
+                    label="Biomasa Total Estimada", 
+                    value=f"{total_biomasa:,} kg",
+                    delta=f"Población total: {total_poblacion:,} animales"
+                )
+            with col3:
+                st.metric(
+                    label="FCR Promedio", 
+                    value=f"{promedio_fcr}",
+                    delta="Promedio por piscina",
+                    delta_color="off"
+                )
+            
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                st.metric(
+                    label="Alimento Total Acumulado", 
+                    value=f"{total_alimento:,} kg",
+                    delta=f"Sacos: {round(total_alimento / 50, 1):,}"
+                )
+            with col5:
+                st.metric(
+                    label="Supervivencia Promedio", 
+                    value=f"{promedio_supervivencia}%",
+                    delta=f"Inicial estimado: {total_poblacion_inicial:,} cam."
+                )
+            with col6:
+                st.metric(
+                    label="ADG Promedio", 
+                    value=f"{promedio_adg} g/día"
+                )
         else:
-            st.warning("No hay suficientes datos de muestra registrados en esta piscina para calcular los indicadores.")
+            st.warning("No hay suficientes datos de muestra registrados en esta selección para calcular los indicadores.")
             
         st.markdown("---")
         st.subheader("Gráficas de Producción")
