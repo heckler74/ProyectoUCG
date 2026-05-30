@@ -245,6 +245,7 @@ if df is not None:
             piscina_obj = camaronera_obj.obtener_piscina(selected_piscina)
             # Obtener resumen por POO
             resumen_piscina = piscina_obj.obtener_resumen()
+            total_poblacion_inicial = piscina_obj.poblacion_inicial or 0
     except Exception as e:
         st.error(f"Error al procesar los datos de la camaronera: {e}")
         st.stop()
@@ -456,8 +457,7 @@ if df is not None:
         with col_k2:
             st.metric("Valores Faltantes / Nulos", df_filtrado.isnull().sum().sum())
         with col_k3:
-            st.metric("Densidad Población Inicial", f"{piscina_obj.poblacion_inicial:,} cam.")
-            
+            st.metric("Densidad Población Inicial", f"{total_poblacion_inicial:,} cam.")
         st.markdown("---")
         
         col_eda1, col_eda2 = st.columns(2)
