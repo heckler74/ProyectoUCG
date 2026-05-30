@@ -625,8 +625,13 @@ if df is not None:
         from sklearn.linear_model import HuberRegressor
         from sklearn.pipeline import make_pipeline
         
-        # Días de cultivo (X) y Peso en gramos (y)
-        X = df_filtrado["dias_cultivo"].values.reshape(-1, 1)
+        # Días objetivo (X) y Peso en gramos (y)
+        # Usar la columna `dias` (calculada a partir de la fecha real) si está disponible;
+        # en caso contrario, usar `dias_cultivo` como respaldo.
+        if "dias" in df_filtrado.columns:
+            X = df_filtrado["dias"].values.reshape(-1, 1)
+        else:
+            X = df_filtrado["dias_cultivo"].values.reshape(-1, 1)
         y = df_filtrado["peso_gramos"].values
         
         if len(X) >= 5:
@@ -664,7 +669,9 @@ if df is not None:
                 with col_ml2:
                     st.markdown("##### Curva de Ajuste y Extrapolación de Machine Learning")
                     # Generar puntos de curva de ajuste
-                    X_fit = np.linspace(1, dia_cosecha, 100).reshape(-1, 1)
+                    # Generar rango de días para ajuste usando el mínimo observado hasta la cosecha proyectada
+                    min_dia = int(X.min()) if X.size > 0 else 1
+                    X_fit = np.linspace(min_dia, dia_cosecha, 100).reshape(-1, 1)
                     y_fit = model_ml.predict(X_fit)
                     
                     # Evitar valores negativos en el ajuste para días iniciales
@@ -673,7 +680,7 @@ if df is not None:
                     fig_ml = go.Figure()
                     # Puntos reales observados
                     fig_ml.add_trace(go.Scatter(
-                        x=df_filtrado["dias_cultivo"], 
+                        x=df_filtrado["dias" if "dias" in df_filtrado.columns else "dias_cultivo"], 
                         y=df_filtrado["peso_gramos"], 
                         mode='markers', 
                         name='Muestreos Históricos',
@@ -681,7 +688,7 @@ if df is not None:
                     ))
                     # Curva de ajuste del modelo Scikit-learn
                     fig_ml.add_trace(go.Scatter(
-                        x=X_fit.flatten()[:ultimo_dia], 
+                        x=X_fit.flatten()[:ultimo_dia - min_dia + 1], 
                         y=y_fit[:ultimo_dia], 
                         mode='lines', 
                         name='Ajuste de Regresión (Scikit-learn)',
@@ -689,8 +696,8 @@ if df is not None:
                     ))
                     # Proyección futura
                     fig_ml.add_trace(go.Scatter(
-                        x=X_fit.flatten()[ultimo_dia-1:], 
-                        y=y_fit[ultimo_dia-1:], 
+                        x=X_fit.flatten()[ultimo_dia - min_dia + 1:], 
+                        y=y_fit[ultimo_dia - min_dia + 1:], 
                         mode='lines', 
                         name=f'Proyección Futura a {dias_proyectar} días',
                         line=dict(color='#ef4444', width=2.5, dash='dash')
