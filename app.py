@@ -100,8 +100,14 @@ st.title("🦐 Panel Analítico del Sector Camaronero")
 st.markdown("##### Plataforma interactiva para el monitoreo de crecimiento, alimentación y rentabilidad en piscinas acuícolas.")
 
 # Sidebar de Parámetros y Origen de Datos
-st.sidebar.markdown("<div style='text-align: center;'><h2 style='color:#38bdf8;margin-bottom:0;'>Antigravity Analytics</h2><p style='color:#94a3b8;font-size:0.8rem;'>Acuicultura y Ciencia de Datos</p></div>", unsafe_allow_html=True)
-st.sidebar.image("Python_logo.png", width=150)
+st.sidebar.markdown(
+    "<div style='text-align: center;'>"
+    "<div style='font-size:4rem; margin-bottom: 0.4rem;'>🦐🧠</div>"
+    "<h2 style='color:#38bdf8;margin-bottom:0;'>Antigravity Analytics</h2>"
+    "<p style='color:#94a3b8;font-size:0.8rem;margin-top: 0.2rem;'>Acuicultura y Ciencia de Datos</p>"
+    "</div>",
+    unsafe_allow_html=True
+)
 st.sidebar.markdown("---")
 
 st.sidebar.subheader("Origen de Datos")
