@@ -7,6 +7,58 @@ import datetime
 import libreria_funciones as lf
 import librería_clases as lc
 
+
+def validar_dataframe_camaronera(df):
+    required_cols = [
+        "codigo_camaronera", "cod_piscina", "fecha_muestra",
+        "corrida", "peso_gramos", "consumo_balanceado_kg", "num_animales"
+    ]
+    missing_cols = [c for c in required_cols if c not in df.columns]
+    if missing_cols:
+        return None, f"Columnas faltantes en el CSV: {', '.join(missing_cols)}"
+
+    df = df.copy()
+    df["fecha_muestra"] = pd.to_datetime(df["fecha_muestra"], errors="coerce")
+    df["peso_gramos"] = pd.to_numeric(df["peso_gramos"], errors="coerce")
+    df["consumo_balanceado_kg"] = pd.to_numeric(df["consumo_balanceado_kg"], errors="coerce")
+    df["num_animales"] = pd.to_numeric(df["num_animales"], errors="coerce").astype("Int64")
+
+    invalid_mask = (
+        df["fecha_muestra"].isna() |
+        df["peso_gramos"].isna() |
+        df["consumo_balanceado_kg"].isna() |
+        df["num_animales"].isna() |
+        (df["peso_gramos"] <= 0) |
+        (df["consumo_balanceado_kg"] < 0) |
+        (df["num_animales"] <= 0)
+    )
+
+    if invalid_mask.any():
+        invalid_rows = df[invalid_mask].copy()
+        invalid_rows["fila_origen"] = invalid_rows.index + 2
+        invalid_details = invalid_rows[[
+            "fila_origen", "codigo_camaronera", "cod_piscina", "fecha_muestra",
+            "peso_gramos", "consumo_balanceado_kg", "num_animales"
+        ]]
+        df = df[~invalid_mask].copy()
+
+        if df.empty:
+            return None, (
+                "Todos los registros del CSV son inválidos. "
+                "Revise el archivo y vuelva a subirlo con datos numéricos y fechas válidas. "
+                f"Filas con errores: {invalid_details['fila_origen'].tolist()}"
+            )
+
+        df["fecha_muestra"] = df["fecha_muestra"].dt.strftime("%Y-%m-%d")
+        return df, (
+            "Se descartaron filas inválidas del CSV. "
+            f"Filas descartadas: {invalid_details['fila_origen'].tolist()}"
+        )
+
+    df["fecha_muestra"] = df["fecha_muestra"].dt.strftime("%Y-%m-%d")
+    return df, None
+
+
 # Configuración de página de Streamlit
 st.set_page_config(
     page_title="Dashboard de Analítica Camaronera",
@@ -72,14 +124,13 @@ else:
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
-            # Verificar columnas requeridas
-            required_cols = ["codigo_camaronera", "cod_piscina", "fecha_muestra", "corrida", "peso_gramos", "consumo_balanceado_kg", "num_animales"]
-            missing_cols = [c for c in required_cols if c not in df.columns]
-            if missing_cols:
-                st.error(f"Columnas faltantes en el CSV: {', '.join(missing_cols)}")
-                df = None
+            df, validation_message = validar_dataframe_camaronera(df)
+            if df is None:
+                st.error(validation_message)
             else:
-                st.sidebar.success("¡CSV cargado correctamente!")
+                if validation_message:
+                    st.warning(validation_message)
+                st.sidebar.success("¡CSV cargado correctamente y validado!")
         except Exception as e:
             st.error(f"Error al leer el CSV: {str(e)}")
     else:
@@ -168,11 +219,14 @@ if df is not None:
     
     # Instanciar clases de Negocio (POO)
     camaronera_obj = lc.Camaronera(selected_camaronera)
-    camaronera_obj.agregar_datos_desde_dataframe(df)
-    piscina_obj = camaronera_obj.obtener_piscina(selected_piscina)
-    
-    # Obtener resumen por POO
-    resumen_piscina = piscina_obj.obtener_resumen()
+    try:
+        camaronera_obj.agregar_datos_desde_dataframe(df)
+        piscina_obj = camaronera_obj.obtener_piscina(selected_piscina)
+        # Obtener resumen por POO
+        resumen_piscina = piscina_obj.obtener_resumen()
+    except Exception as e:
+        st.error(f"Error al procesar los datos de la camaronera: {e}")
+        st.stop()
     
     # Pestañas principales
     tab1, tab2, tab3, tab4 = st.tabs([
