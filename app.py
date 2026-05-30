@@ -371,7 +371,16 @@ if df is not None:
         st.write("Estadísticas y distribución de las variables registradas.")
         
         # Mostrar tabla interactiva
-        st.dataframe(df_filtrado[["fecha_muestra", "corrida", "peso_gramos", "consumo_balanceado_kg", "num_animales"]], use_container_width=True)
+        # Asegurar columna `dias` (preferir `dias_desde_inicio`, sino `dias_cultivo`, sino índice)
+        if "dias_desde_inicio" in df_filtrado.columns:
+            df_filtrado["dias"] = df_filtrado["dias_desde_inicio"]
+        elif "dias_cultivo" in df_filtrado.columns:
+            df_filtrado["dias"] = df_filtrado["dias_cultivo"]
+        else:
+            df_filtrado = df_filtrado.reset_index(drop=True)
+            df_filtrado["dias"] = df_filtrado.index + 1
+
+        st.dataframe(df_filtrado[["fecha_muestra", "corrida", "dias", "peso_gramos", "consumo_balanceado_kg", "num_animales"]], use_container_width=True)
         
         col_k1, col_k2, col_k3 = st.columns(3)
         with col_k1:
