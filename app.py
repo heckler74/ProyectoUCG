@@ -115,6 +115,8 @@ df = None
 if origen_datos == "Utilizar Datos de Demostración (Simulados)":
     dias_sim = st.sidebar.slider("Días de cultivo a simular", 30, 120, 90, step=10)
     df = lf.generar_datos_camaronera_simulados(num_dias=dias_sim)
+    # Añadir columna de días desde la muestra 0 por corrida/piscina/camaronera
+    df = lf.agregar_dias_desde_inicio(df)
     st.sidebar.success("¡Datos simulados cargados!")
 else:
     uploaded_file = st.sidebar.file_uploader(
@@ -130,6 +132,8 @@ else:
             else:
                 if validation_message:
                     st.warning(validation_message)
+                # Añadir columna de días desde la muestra 0 (descarta filas inválidas previo)
+                df = lf.agregar_dias_desde_inicio(df)
                 st.sidebar.success("¡CSV cargado correctamente y validado!")
         except Exception as e:
             st.error(f"Error al leer el CSV: {str(e)}")

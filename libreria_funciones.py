@@ -351,3 +351,43 @@ def generar_datos_camaronera_simulados(num_dias=90):
                 peso_anterior = peso_gramos
 
     return pd.DataFrame(registros)
+
+
+def agregar_dias_desde_inicio(df):
+    """
+    Añade la columna `dias_desde_inicio` al DataFrame con la cantidad de días
+    transcurridos desde la primera muestra (muestra 0) de cada grupo
+    definido por `codigo_camaronera`, `cod_piscina` y `corrida`.
+
+    Parámetros:
+        df (pandas.DataFrame): DataFrame que contiene al menos las columnas
+            `codigo_camaronera`, `cod_piscina`, `corrida` y `fecha_muestra`.
+
+    Retorna:
+        pandas.DataFrame: Copia del DataFrame original con la columna
+        `dias_desde_inicio` (int) añadida.
+    """
+    import pandas as pd
+
+    if df is None or df.empty:
+        return df
+
+    df = df.copy()
+
+    # Asegurar que fecha_muestra es datetime
+    df["fecha_muestra"] = pd.to_datetime(df["fecha_muestra"], errors="coerce")
+
+    # Ordenar para estabilidad
+    df = df.sort_values(["codigo_camaronera", "cod_piscina", "corrida", "fecha_muestra"]) 
+
+    # Calcular la fecha de inicio por grupo
+    group_keys = ["codigo_camaronera", "cod_piscina", "corrida"]
+    df["fecha_inicio_corrida"] = df.groupby(group_keys)["fecha_muestra"].transform("min")
+
+    # Dias transcurridos desde la fecha inicio
+    df["dias_desde_inicio"] = (df["fecha_muestra"] - df["fecha_inicio_corrida"]).dt.days.fillna(0).astype(int)
+
+    # Quitar columna auxiliar
+    df.drop(columns=["fecha_inicio_corrida"], inplace=True)
+
+    return df
