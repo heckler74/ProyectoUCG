@@ -234,7 +234,7 @@ if df is not None:
     camaronera_obj = lc.Camaronera(selected_camaronera)
     resumen_general = None
     try:
-        camaronera_obj.agregar_datos_desde_dataframe(df)
+        camaronera_obj.agregar_datos_desde_dataframe(df_filtrado)
         if selected_piscina == ALL_PISCINAS:
             resumen_general = camaronera_obj.obtener_resumen_general()
             resumen_piscina = None
@@ -525,8 +525,15 @@ if df is not None:
         # Cálculos financieros (1 Libra = 453.592 gramos)
         precio_venta_kg = precio_venta_lb / 0.453592
         
-        biomasa_final_kg = resumen_piscina["biomasa_actual_kg"]
-        alimento_final_kg = resumen_piscina["alimento_acumulado_kg"]
+        if resumen_piscina is not None:
+            biomasa_final_kg = resumen_piscina["biomasa_actual_kg"]
+            alimento_final_kg = resumen_piscina["alimento_acumulado_kg"]
+        elif resumen_general:
+            biomasa_final_kg = sum(r["biomasa_actual_kg"] for r in resumen_general)
+            alimento_final_kg = sum(r["alimento_acumulado_kg"] for r in resumen_general)
+        else:
+            biomasa_final_kg = 0.0
+            alimento_final_kg = 0.0
         sacos_consumidos = alimento_final_kg / 50.0
         
         ingreso_bruto = biomasa_final_kg * precio_venta_kg
