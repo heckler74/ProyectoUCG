@@ -278,6 +278,105 @@ def calcular_supervivencia(poblacion_actual, poblacion_inicial):
     return (poblacion_actual / poblacion_inicial) * 100.0
 
 
+def simular_escenario_pesca(densidad_inicial, peso_inicial_g, dias_cosecha, historial_df=None):
+    """
+    Estima el resultado de un escenario de pesca en función de la densidad sembrada,
+    el peso inicial, los días de cultivo y los datos históricos disponibles.
+
+    Parámetros:
+        densidad_inicial (int): Número total de camarones sembrados.
+        peso_inicial_g (float): Peso de siembra promedio en gramos.
+        dias_cosecha (int): Días totales previstos hasta la cosecha.
+        historial_df (pandas.DataFrame|None): Datos históricos filtrados para camaronera/piscina.
+
+    Retorna:
+        dict: Resultados proyectados con las claves:
+            peso_final_g,
+            camarones_cosechados,
+            biomasa_final_kg,
+            total_balanceado_kg,
+            fcr_estimada,
+            supervivencia_pct,
+            adg_estimada.
+    """
+    import pandas as pd
+
+    # Valores base por defecto
+    adg_estimada = 0.18
+    fcr_estimada = 1.6
+    supervivencia_pct = 85.0
+
+    if historial_df is not None and not historial_df.empty:
+        df = historial_df.copy()
+
+        if "dias_desde_inicio" in df.columns:
+            df["dias"] = df["dias_desde_inicio"]
+        elif "fecha_muestra" in df.columns:
+            df["fecha_muestra"] = pd.to_datetime(df["fecha_muestra"], errors="coerce")
+            df = df.sort_values("fecha_muestra")
+            if df["fecha_muestra"].notna().any():
+                start = df["fecha_muestra"].min()
+                df["dias"] = (df["fecha_muestra"] - start).dt.days
+            else:
+                df["dias"] = range(1, len(df) + 1)
+        else:
+            df = df.reset_index(drop=True)
+            df["dias"] = df.index + 1
+
+        df = df.sort_values("dias")
+        df = df[df["dias"] >= 0]
+
+        if len(df) >= 2 and "peso_gramos" in df.columns:
+            df = df.dropna(subset=["peso_gramos", "dias"])
+            diffs = df["peso_gramos"].diff()
+            diffs_dias = df["dias"].diff()
+            valid = (diffs_dias > 0)
+            slopes = diffs[valid] / diffs_dias[valid]
+            if len(slopes) > 0:
+                adg_estimada = max(0.05, min(float(slopes.mean()), 0.6))
+
+        if "num_animales" in df.columns and len(df) >= 2:
+            df = df.dropna(subset=["num_animales"])
+            if len(df) >= 2:
+                poblacion_inicial = df.iloc[0]["num_animales"]
+                poblacion_final = df.iloc[-1]["num_animales"]
+                if poblacion_inicial > 0:
+                    supervivencia_pct = max(20.0, min(float((poblacion_final / poblacion_inicial) * 100.0), 100.0))
+
+        if "consumo_balanceado_kg" in df.columns and "peso_gramos" in df.columns and "num_animales" in df.columns:
+            df = df.dropna(subset=["consumo_balanceado_kg", "peso_gramos", "num_animales"])
+            if len(df) >= 2:
+                df["biomasa_kg"] = (df["num_animales"] * df["peso_gramos"]) / 1000.0
+                df["ratio_alimento_biomasa"] = df.apply(
+                    lambda row: row["consumo_balanceado_kg"] / row["biomasa_kg"] if row["biomasa_kg"] > 0 else 0,
+                    axis=1
+                )
+                ratios = df["ratio_alimento_biomasa"][df["ratio_alimento_biomasa"] > 0]
+                if len(ratios) > 0:
+                    ratio_promedio = float(ratios.mean())
+                    fcr_estimada = max(1.1, min(ratio_promedio * 12.0, 2.5))
+
+    # Proyección del peso final
+    peso_final_g = max(peso_inicial_g, peso_inicial_g + adg_estimada * dias_cosecha)
+
+    camarones_cosechados = int(round(densidad_inicial * (supervivencia_pct / 100.0)))
+    biomasa_final_kg = (camarones_cosechados * peso_final_g) / 1000.0
+    biomasa_inicial_kg = (camarones_cosechados * peso_inicial_g) / 1000.0
+    ganancia_biomasa_kg = max(0.0, biomasa_final_kg - biomasa_inicial_kg)
+    total_balanceado_kg = ganancia_biomasa_kg * fcr_estimada if ganancia_biomasa_kg > 0 else 0.0
+    fcr_calculada = (total_balanceado_kg / ganancia_biomasa_kg) if ganancia_biomasa_kg > 0 else 0.0
+
+    return {
+        "peso_final_g": round(peso_final_g, 2),
+        "camarones_cosechados": camarones_cosechados,
+        "biomasa_final_kg": round(biomasa_final_kg, 2),
+        "total_balanceado_kg": round(total_balanceado_kg, 2),
+        "fcr_estimada": round(fcr_calculada, 2),
+        "supervivencia_pct": round(supervivencia_pct, 2),
+        "adg_estimada": round(adg_estimada, 3)
+    }
+
+
 def generar_datos_camaronera_simulados(num_dias=90):
     """
     Genera un conjunto de datos simulado y realista para el sector camaronero.

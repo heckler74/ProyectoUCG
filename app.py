@@ -496,6 +496,78 @@ if df is not None:
         )
         st.plotly_chart(fig_hist, use_container_width=True)
 
+        # Comparación de biomasa histórica contra proyección del simulador
+        if "num_animales" in df_filtrado.columns and "peso_gramos" in df_filtrado.columns:
+            df_comparacion = df_filtrado.dropna(subset=["num_animales", "peso_gramos", "dias"]).copy()
+            if len(df_comparacion) >= 2:
+                df_comparacion["biomasa_kg"] = (df_comparacion["num_animales"] * df_comparacion["peso_gramos"]) / 1000.0
+                dias_objetivo = int(df_comparacion["dias"].iloc[-1])
+                densidad_inicial = int(df_comparacion["num_animales"].iloc[0])
+                peso_inicial_sim = float(df_comparacion["peso_gramos"].iloc[0])
+
+                resultado_hist = lf.simular_escenario_pesca(
+                    densidad_inicial,
+                    peso_inicial_sim,
+                    dias_objetivo,
+                    df_comparacion
+                )
+
+                biomasa_actual_final = round(df_comparacion["biomasa_kg"].iloc[-1], 2)
+                biomasa_simulada = resultado_hist["biomasa_final_kg"]
+                diferencia_biomasa = round(biomasa_simulada - biomasa_actual_final, 2)
+                porcentaje_error = round(
+                    abs(diferencia_biomasa) / biomasa_actual_final * 100.0,
+                    2
+                ) if biomasa_actual_final > 0 else 0.0
+
+                st.markdown("---")
+                st.markdown("### Comparación de Biomasa Histórica vs Simulada")
+                col_b1, col_b2, col_b3, col_b4 = st.columns(4)
+                with col_b1:
+                    st.metric(
+                        "Biomasa Histórica Final",
+                        f"{biomasa_actual_final:,} kg"
+                    )
+                with col_b2:
+                    st.metric(
+                        "Biomasa Simulada",
+                        f"{biomasa_simulada:,} kg"
+                    )
+                with col_b3:
+                    st.metric(
+                        "Diferencia",
+                        f"{diferencia_biomasa:+,} kg"
+                    )
+                with col_b4:
+                    st.metric(
+                        "Error Relativo",
+                        f"{porcentaje_error}%"
+                    )
+
+                fig_biomasa = px.line(
+                    df_comparacion,
+                    x="dias",
+                    y="biomasa_kg",
+                    title="Biomasa Histórica por Día de Cultivo",
+                    labels={"dias": "Días de Cultivo", "biomasa_kg": "Biomasa (kg)"},
+                    markers=True,
+                )
+                fig_biomasa.add_scatter(
+                    x=[dias_objetivo],
+                    y=[biomasa_simulada],
+                    mode="markers+text",
+                    marker=dict(color="#f59e0b", size=12),
+                    text=["Proyección final"],
+                    textposition="top center",
+                    name="Proyección"
+                )
+                fig_biomasa.update_layout(template='plotly_dark')
+                st.plotly_chart(fig_biomasa, use_container_width=True)
+            else:
+                st.info("No hay suficientes datos con `num_animales` y `peso_gramos` para comparar la biomasa histórica con la simulación.")
+        else:
+            st.info("Los datos actuales no contienen la información necesaria de población y peso para comparar biomasa histórica con el simulador.")
+
     with tab3:
         st.subheader("Simulación Económica de la Cosecha")
         st.write("Monitoree e interactúe con los parámetros comerciales para proyectar la rentabilidad operativa.")
@@ -572,6 +644,47 @@ if df is not None:
         )
         st.plotly_chart(fig_pie, use_container_width=True)
         
+        # Simulador de Escenario de Pesca
+        st.markdown("##### Simulador de Escenario de Pesca")
+        st.write("Ingrese parámetros de siembra y días de cosecha para proyectar peso, cosecha y balanceado.")
+
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1:
+            densidad_sim = st.number_input(
+                "Densidad total sembrada (número de camarones)",
+                min_value=1000, max_value=500000, value=100000, step=1000
+            )
+        with col_s2:
+            peso_siembra_sim = st.number_input(
+                "Peso inicial de siembra (g)",
+                min_value=0.01, max_value=15.0, value=0.05, step=0.01
+            )
+        with col_s3:
+            dias_cosecha_sim = st.slider(
+                "Total de días hasta la cosecha", 10, 150, 60, step=5
+            )
+
+        resultado_sim = lf.simular_escenario_pesca(
+            densidad_sim,
+            peso_siembra_sim,
+            dias_cosecha_sim,
+            df_filtrado
+        )
+
+        st.markdown("###### Resultados del Escenario de Pesca")
+        col_r1, col_r2, col_r3, col_r4 = st.columns(4)
+        with col_r1:
+            st.metric("Peso final proyectado", f"{resultado_sim['peso_final_g']:,} g")
+        with col_r2:
+            st.metric("Camarones cosechados", f"{resultado_sim['camarones_cosechados']:,}")
+        with col_r3:
+            st.metric("Balanceado proyectado", f"{resultado_sim['total_balanceado_kg']:,} kg")
+        with col_r4:
+            st.metric("FCR estimado", f"{resultado_sim['fcr_estimada']}")
+
+        st.markdown(f"- Supervivencia esperada: {resultado_sim['supervivencia_pct']}%")
+        st.markdown(f"- ADG estimado: {resultado_sim['adg_estimada']} g/día")
+
         # Exportar datos
         st.markdown("##### Descargar Resultados Financieros")
         if resumen_piscina is not None:
