@@ -574,13 +574,23 @@ if df is not None:
         
         # Exportar datos
         st.markdown("##### Descargar Resultados Financieros")
+        if resumen_piscina is not None:
+            export_fcr = round(resumen_piscina["fcr_actual"], 2)
+            export_supervivencia = round(resumen_piscina["supervivencia_pct"], 2)
+        elif resumen_general:
+            export_fcr = round(sum(r["fcr_actual"] for r in resumen_general) / len(resumen_general), 2)
+            export_supervivencia = round(sum(r["supervivencia_pct"] for r in resumen_general) / len(resumen_general), 2)
+        else:
+            export_fcr = 0.0
+            export_supervivencia = 0.0
+
         export_df = pd.DataFrame([{
             "Camaronera": selected_camaronera,
             "Piscina": selected_piscina,
             "Corrida": selected_corrida,
             "Biomasa Cosechada (kg)": round(biomasa_final_kg, 2),
-            "FCR": round(resumen_piscina["fcr_actual"], 2),
-            "Supervivencia (%)": round(resumen_piscina["supervivencia_pct"], 2),
+            "FCR": export_fcr,
+            "Supervivencia (%)": export_supervivencia,
             "Ingreso Bruto ($)": round(ingreso_bruto, 2),
             "Costo Alimentacion ($)": round(costo_alimento, 2),
             "Costos Operativos ($)": round(costos_fijos_hectarea, 2),
@@ -599,10 +609,19 @@ if df is not None:
         st.subheader("🩺 Diagnóstico Técnico y Alertas de Gestión")
         st.write("Análisis lógico automatizado basado en los estándares productivos de la acuicultura.")
         
-        fcr = resumen_piscina["fcr_actual"]
-        supervivencia = resumen_piscina["supervivencia_pct"]
-        adg = resumen_piscina["adg_promedio_g_dia"]
-        
+        if resumen_piscina is not None:
+            fcr = resumen_piscina["fcr_actual"]
+            supervivencia = resumen_piscina["supervivencia_pct"]
+            adg = resumen_piscina["adg_promedio_g_dia"]
+        elif resumen_general:
+            fcr = sum(r["fcr_actual"] for r in resumen_general) / len(resumen_general)
+            supervivencia = sum(r["supervivencia_pct"] for r in resumen_general) / len(resumen_general)
+            adg = sum(r["adg_promedio_g_dia"] for r in resumen_general) / len(resumen_general)
+        else:
+            fcr = 0.0
+            supervivencia = 0.0
+            adg = 0.0
+
         alertas = []
         
         # Diagnóstico de FCR
